@@ -50,7 +50,7 @@ def analyze_project(repo, readme_content):
         return
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-pro')
 
     prompt = f"""
     Tu es un investisseur tech. Analyse ce projet GitHub.
