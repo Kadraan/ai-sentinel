@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 
 # Configuration
 GITHUB_API_URL = "https://api.github.com/search/repositories"
-TOPICS = ["agentic-ai", "autonomous-agents", "marketing-automation"]
-DAYS_BACK = 7
+TOPICS = ["llm", "artificial-intelligence", "automation", "openai"]
+DAYS_BACK = 30
 MIN_STARS = 0  # Optional: filter by stars if needed
 
 def get_recent_repos():
