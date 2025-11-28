@@ -6,10 +6,9 @@ import time
 
 # Configuration
 GITHUB_API_URL = "https://api.github.com"
-SEARCH_TOPICS = ["llm", "agentic", "automation", "ai-marketing"]
 DAYS_BACK = 30
 MIN_NOTE = 7
-GEMINI_MODEL = "models/gemini-2.5-flash" # As requested
+GEMINI_MODEL = "models/gemini-2.5-flash"
 
 def get_env_var(name):
     val = os.getenv(name)
@@ -21,24 +20,37 @@ def get_trending_repos(token):
     """Récupère les dépôts populaires récents."""
     print(f"🔍 Recherche de projets récents ({DAYS_BACK} jours)...")
     date_since = (datetime.now() - timedelta(days=DAYS_BACK)).strftime('%Y-%m-%d')
-    query = f"created:>{date_since} " + " ".join([f"topic:{t}" for t in SEARCH_TOPICS])
+    
+    # REQUÊTE SIMPLIFIÉE
+    query = f"llm created:>{date_since}"
     
     headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
     params = {"q": query, "sort": "stars", "order": "desc", "per_page": 5}
     
     try:
         resp = requests.get(f"{GITHUB_API_URL}/search/repositories", headers=headers, params=params)
+        
+        # LOGS DE DEBUG
+        print(f"DEBUG URL : {resp.url}")
+        print(f"DEBUG Status : {resp.status_code}")
+        
         resp.raise_for_status()
-        return resp.json().get("items", [])
+        data = resp.json()
+        
+        print(f"DEBUG JSON Keys : {data.keys()}")
+        items = data.get("items", [])
+        print(f"DEBUG Items count : {len(items)}")
+        
+        return items
     except Exception as e:
         print(f"[ERROR] Recherche GitHub : {e}")
+        if 'resp' in locals():
+             print(f"DEBUG Response Text: {resp.text}")
         return []
 
 def issue_exists(token, repo_slug, title_search):
     """Vérifie si une issue existe déjà avec ce titre dans NOTRE dépôt."""
     headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
-    # On cherche dans les issues du dépôt courant
-    # query: repo:OWNER/REPO is:issue "Titre"
     q = f"repo:{repo_slug} is:issue \"{title_search}\""
     params = {"q": q}
     
@@ -103,7 +115,6 @@ def parse_note(analysis_text):
     try:
         for line in analysis_text.split('\n'):
             if "NOTE :" in line:
-                # Extrait "8" de "NOTE : 8/10" ou "NOTE : 8"
                 part = line.split(":")[1].strip()
                 score = part.split("/")[0].strip()
                 return float(score)
@@ -112,15 +123,13 @@ def parse_note(analysis_text):
     return 0
 
 def main():
-    # 1. Load Env
     gemini_key = get_env_var('GEMINI_API_KEY')
     github_token = get_env_var('GITHUB_TOKEN')
-    my_repo = get_env_var('GITHUB_REPOSITORY') # Format: "owner/repo"
+    my_repo = get_env_var('GITHUB_REPOSITORY')
 
     if not all([gemini_key, github_token, my_repo]):
         return
 
-    # 2. Search
     repos = get_trending_repos(github_token)
     if not repos:
         print("Aucun projet trouvé.")
@@ -136,18 +145,15 @@ def main():
 
         print(f"👉 Projet : {name}")
 
-        # 3. Deduplication
         if issue_exists(github_token, my_repo, issue_title):
             print(f"   ⚠️ Doublon détecté (Issue existe déjà). Ignoré.")
             continue
 
-        # 4. Get Content
         readme = get_readme(full_name, repo['default_branch'])
         if not readme:
             print("   ⚠️ Pas de README trouvé.")
             continue
 
-        # 5. Analyze
         print("   🤖 Analyse Gemini en cours...")
         analysis = analyze_with_gemini(gemini_key, name, readme)
         if not analysis:
@@ -156,7 +162,6 @@ def main():
         note = parse_note(analysis)
         print(f"   📊 Note : {note}/10")
 
-        # 6. Action
         if note > MIN_NOTE:
             body = f"""
 # 🤖 Rapport de Veille Automatique
@@ -176,7 +181,7 @@ def main():
         else:
             print("   ❌ Note insuffisante.")
         
-        time.sleep(1) # Pause pour éviter rate limits
+        time.sleep(1)
 
 if __name__ == "__main__":
     main()
